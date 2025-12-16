@@ -27,7 +27,8 @@ class NBTExporter:
         palette_index = 0
         
         # Air is always index 0
-        palette[AIR.minecraft_id] = 0
+        # Use block_state string for the palette key
+        palette[AIR.block_state] = 0
         palette_index = 1
         
         # Scan schematic for unique blocks
@@ -35,8 +36,9 @@ class NBTExporter:
             for y in range(schematic.height):
                 for z in range(schematic.length):
                     block = schematic.blocks[x, y, z]
-                    if block.minecraft_id not in palette:
-                        palette[block.minecraft_id] = palette_index
+                    state_string = block.block_state
+                    if state_string not in palette:
+                        palette[state_string] = palette_index
                         palette_index += 1
         
         # Create block data array
@@ -46,15 +48,15 @@ class NBTExporter:
             for z in range(schematic.length):
                 for x in range(schematic.width):
                     block = schematic.blocks[x, y, z]
-                    block_data.append(palette[block.minecraft_id])
+                    block_data.append(palette[block.block_state])
         
         # Convert block data to varint byte array
         block_data_bytes = NBTExporter._encode_varint_array(block_data)
         
         # Create palette NBT structure for blocks
         palette_nbt = Compound()
-        for block_id, index in palette.items():
-            palette_nbt[block_id] = Int(index)
+        for block_state_str, index in palette.items():
+            palette_nbt[block_state_str] = Int(index)
         
         # Build the Blocks container (v3 format)
         blocks_container = Compound({

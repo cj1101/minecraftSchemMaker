@@ -6,7 +6,7 @@ Comprehensive block library for Minecraft 1.21.10 with accurate colors.
 class Block:
     """Represents a Minecraft block type with its properties."""
     
-    def __init__(self, minecraft_id, name, color):
+    def __init__(self, minecraft_id, name, color, properties=None):
         """
         Initialize a block type.
         
@@ -14,13 +14,52 @@ class Block:
             minecraft_id: Minecraft namespaced ID (e.g., "minecraft:stone")
             name: Human-readable name
             color: RGB tuple for 3D rendering (0-255)
+            properties: Dictionary of block state properties (e.g., {'facing': 'north'})
         """
         self.minecraft_id = minecraft_id
         self.name = name
         self.color = color
+        self.properties = properties or {}
     
+    @property
+    def block_state(self):
+        """Returns the full block state string for palettes (e.g., minecraft:stone[variant=andesite])."""
+        if not self.properties:
+            return self.minecraft_id
+
+        props = ",".join(f"{k}={v}" for k, v in sorted(self.properties.items()))
+        return f"{self.minecraft_id}[{props}]"
+
+    def with_properties(self, **kwargs):
+        """
+        Create a new Block instance with updated properties.
+
+        Args:
+            **kwargs: Properties to set or override.
+
+        Returns:
+            A new Block instance.
+        """
+        new_props = self.properties.copy()
+        new_props.update(kwargs)
+        # Create new instance with same ID, name, color, but new properties
+        return Block(self.minecraft_id, self.name, self.color, new_props)
+
     def __repr__(self):
+        if self.properties:
+            return f"Block({self.name}, {self.properties})"
         return f"Block({self.name})"
+
+    def __eq__(self, other):
+        if not isinstance(other, Block):
+            return False
+        return (self.minecraft_id == other.minecraft_id and
+                self.properties == other.properties)
+
+    def __hash__(self):
+        # Convert properties dict to a sorted tuple of items for hashing
+        props_tuple = tuple(sorted(self.properties.items()))
+        return hash((self.minecraft_id, props_tuple))
 
 
 # ===== BASIC BLOCKS =====
@@ -246,7 +285,7 @@ WATER = Block("minecraft:water", "Water", (64, 96, 255))
 LAVA = Block("minecraft:lava", "Lava", (255, 100, 0))
 
 
-# Build the comprehensive block registry
+# Build the comprehensive block registry (Base blocks)
 BLOCK_REGISTRY = {block.minecraft_id: block for block in [
     AIR, STONE, GRANITE, POLISHED_GRANITE, DIORITE, POLISHED_DIORITE, ANDESITE, POLISHED_ANDESITE,
     DEEPSLATE, COBBLED_DEEPSLATE, POLISHED_DEEPSLATE, DEEPSLATE_BRICKS, DEEPSLATE_TILES, CHISELED_DEEPSLATE,
@@ -305,6 +344,25 @@ def get_block_by_id(minecraft_id):
     return BLOCK_REGISTRY.get(minecraft_id)
 
 
+def create_block(minecraft_id, properties=None):
+    """
+    Create a new block dynamically.
+
+    Args:
+        minecraft_id: Minecraft ID
+        properties: Optional properties dict
+
+    Returns:
+        Block instance
+    """
+    # Check if we have a base block definition for color
+    base = BLOCK_REGISTRY.get(minecraft_id)
+    color = base.color if base else (255, 0, 255)  # Default magenta for unknown
+    name = base.name if base else minecraft_id.split(':')[-1].replace('_', ' ').title()
+
+    return Block(minecraft_id, name, color, properties)
+
+
 def validate_block(block):
     """
     Validate that a block is a valid Block instance.
@@ -316,3 +374,177 @@ def validate_block(block):
         True if valid, False otherwise
     """
     return isinstance(block, Block)
+
+# === DYNAMIC BLOCK HELPERS ===
+# These allow creating variations of blocks easily
+
+def stair(material_block, facing='north', half='bottom', shape='straight'):
+    """Create a stair block."""
+    if not isinstance(material_block, Block):
+        raise ValueError("Invalid material block")
+
+    # Determine ID (replace _planks or _block with _stairs usually, or just append _stairs)
+    # This is a heuristic. For OAK_PLANKS -> OAK_STAIRS.
+    # For STONE -> STONE_STAIRS.
+    base_id = material_block.minecraft_id
+    if 'planks' in base_id:
+        stair_id = base_id.replace('planks', 'stairs')
+    elif 'bricks' in base_id:
+        stair_id = base_id.replace('bricks', 'brick_stairs') # specific case
+        if 'stone_brick_stairs' in stair_id:
+            stair_id = stair_id.replace('brick_stairs', 'stairs') # stone_stairs correction
+    else:
+        stair_id = base_id + "_stairs"
+
+    # Correct some common ones manually if needed, or rely on user passing the correct Stair Block
+    # But better: Use the material block's color and name to make a new block
+
+    return Block(
+        stair_id,
+        f"{material_block.name} Stairs",
+        material_block.color,
+        {'facing': facing, 'half': half, 'shape': shape}
+    )
+
+# For user convenience, we will populate the registry with complex blocks now.
+# This list matches 1.21.10 common items.
+
+# Helper to register a list of blocks
+def _reg(id_base, name_base, color, variants=None):
+    b = Block(f"minecraft:{id_base}", name_base, color)
+    BLOCK_REGISTRY[b.minecraft_id] = b
+    return b
+
+# Additional 1.21 blocks and variants
+CRAFTER = _reg("crafter", "Crafter", (100, 100, 100))
+TRIAL_SPAWNER = _reg("trial_spawner", "Trial Spawner", (150, 100, 50))
+VAULT = _reg("vault", "Vault", (150, 100, 50))
+COPPER_BULB = _reg("copper_bulb", "Copper Bulb", (200, 150, 100))
+HEAVY_CORE = _reg("heavy_core", "Heavy Core", (200, 200, 220))
+
+# Redstone
+REDSTONE_WIRE = _reg("redstone_wire", "Redstone Wire", (255, 0, 0))
+REDSTONE_TORCH = _reg("redstone_torch", "Redstone Torch", (255, 0, 0))
+REPEATER = _reg("repeater", "Redstone Repeater", (200, 200, 200))
+COMPARATOR = _reg("comparator", "Redstone Comparator", (200, 200, 200))
+PISTON = _reg("piston", "Piston", (150, 150, 150))
+STICKY_PISTON = _reg("sticky_piston", "Sticky Piston", (150, 180, 150))
+OBSERVER = _reg("observer", "Observer", (50, 50, 50))
+DISPENSER = _reg("dispenser", "Dispenser", (100, 100, 100))
+DROPPER = _reg("dropper", "Dropper", (100, 100, 100))
+HOPPER = _reg("hopper", "Hopper", (80, 80, 80))
+LEVER = _reg("lever", "Lever", (100, 80, 60))
+DAYLIGHT_DETECTOR = _reg("daylight_detector", "Daylight Detector", (200, 180, 120))
+SCULK_SENSOR = _reg("sculk_sensor", "Sculk Sensor", (10, 100, 150))
+CALIBRATED_SCULK_SENSOR = _reg("calibrated_sculk_sensor", "Calibrated Sculk Sensor", (20, 100, 160))
+TRIPWIRE_HOOK = _reg("tripwire_hook", "Tripwire Hook", (100, 100, 100))
+TRIPWIRE = _reg("tripwire", "Tripwire", (200, 200, 200))
+
+# Rails
+RAIL = _reg("rail", "Rail", (200, 200, 200))
+POWERED_RAIL = _reg("powered_rail", "Powered Rail", (255, 200, 100))
+DETECTOR_RAIL = _reg("detector_rail", "Detector Rail", (200, 100, 100))
+ACTIVATOR_RAIL = _reg("activator_rail", "Activator Rail", (100, 200, 100))
+
+# Doors (Base definitions, typically used with upper/lower props)
+OAK_DOOR = _reg("oak_door", "Oak Door", OAK_PLANKS.color)
+IRON_DOOR = _reg("iron_door", "Iron Door", IRON_BLOCK.color)
+SPRUCE_DOOR = _reg("spruce_door", "Spruce Door", SPRUCE_PLANKS.color)
+BIRCH_DOOR = _reg("birch_door", "Birch Door", BIRCH_PLANKS.color)
+JUNGLE_DOOR = _reg("jungle_door", "Jungle Door", JUNGLE_PLANKS.color)
+ACACIA_DOOR = _reg("acacia_door", "Acacia Door", ACACIA_PLANKS.color)
+DARK_OAK_DOOR = _reg("dark_oak_door", "Dark Oak Door", DARK_OAK_PLANKS.color)
+MANGROVE_DOOR = _reg("mangrove_door", "Mangrove Door", MANGROVE_PLANKS.color)
+CHERRY_DOOR = _reg("cherry_door", "Cherry Door", CHERRY_PLANKS.color)
+BAMBOO_DOOR = _reg("bamboo_door", "Bamboo Door", BAMBOO_PLANKS.color)
+CRIMSON_DOOR = _reg("crimson_door", "Crimson Door", CRIMSON_PLANKS.color)
+WARPED_DOOR = _reg("warped_door", "Warped Door", WARPED_PLANKS.color)
+COPPER_DOOR = _reg("copper_door", "Copper Door", COPPER_BLOCK.color)
+EXPOSED_COPPER_DOOR = _reg("exposed_copper_door", "Exposed Copper Door", EXPOSED_COPPER.color)
+WEATHERED_COPPER_DOOR = _reg("weathered_copper_door", "Weathered Copper Door", WEATHERED_COPPER.color)
+OXIDIZED_COPPER_DOOR = _reg("oxidized_copper_door", "Oxidized Copper Door", OXIDIZED_COPPER.color)
+
+# Trapdoors
+OAK_TRAPDOOR = _reg("oak_trapdoor", "Oak Trapdoor", OAK_PLANKS.color)
+IRON_TRAPDOOR = _reg("iron_trapdoor", "Iron Trapdoor", IRON_BLOCK.color)
+SPRUCE_TRAPDOOR = _reg("spruce_trapdoor", "Spruce Trapdoor", SPRUCE_PLANKS.color)
+BIRCH_TRAPDOOR = _reg("birch_trapdoor", "Birch Trapdoor", BIRCH_PLANKS.color)
+JUNGLE_TRAPDOOR = _reg("jungle_trapdoor", "Jungle Trapdoor", JUNGLE_PLANKS.color)
+ACACIA_TRAPDOOR = _reg("acacia_trapdoor", "Acacia Trapdoor", ACACIA_PLANKS.color)
+DARK_OAK_TRAPDOOR = _reg("dark_oak_trapdoor", "Dark Oak Trapdoor", DARK_OAK_PLANKS.color)
+MANGROVE_TRAPDOOR = _reg("mangrove_trapdoor", "Mangrove Trapdoor", MANGROVE_PLANKS.color)
+CHERRY_TRAPDOOR = _reg("cherry_trapdoor", "Cherry Trapdoor", CHERRY_PLANKS.color)
+BAMBOO_TRAPDOOR = _reg("bamboo_trapdoor", "Bamboo Trapdoor", BAMBOO_PLANKS.color)
+CRIMSON_TRAPDOOR = _reg("crimson_trapdoor", "Crimson Trapdoor", CRIMSON_PLANKS.color)
+WARPED_TRAPDOOR = _reg("warped_trapdoor", "Warped Trapdoor", WARPED_PLANKS.color)
+COPPER_TRAPDOOR = _reg("copper_trapdoor", "Copper Trapdoor", COPPER_BLOCK.color)
+
+# Fences
+OAK_FENCE = _reg("oak_fence", "Oak Fence", OAK_PLANKS.color)
+SPRUCE_FENCE = _reg("spruce_fence", "Spruce Fence", SPRUCE_PLANKS.color)
+BIRCH_FENCE = _reg("birch_fence", "Birch Fence", BIRCH_PLANKS.color)
+JUNGLE_FENCE = _reg("jungle_fence", "Jungle Fence", JUNGLE_PLANKS.color)
+ACACIA_FENCE = _reg("acacia_fence", "Acacia Fence", ACACIA_PLANKS.color)
+DARK_OAK_FENCE = _reg("dark_oak_fence", "Dark Oak Fence", DARK_OAK_PLANKS.color)
+MANGROVE_FENCE = _reg("mangrove_fence", "Mangrove Fence", MANGROVE_PLANKS.color)
+CHERRY_FENCE = _reg("cherry_fence", "Cherry Fence", CHERRY_PLANKS.color)
+BAMBOO_FENCE = _reg("bamboo_fence", "Bamboo Fence", BAMBOO_PLANKS.color)
+CRIMSON_FENCE = _reg("crimson_fence", "Crimson Fence", CRIMSON_PLANKS.color)
+WARPED_FENCE = _reg("warped_fence", "Warped Fence", WARPED_PLANKS.color)
+NETHER_BRICK_FENCE = _reg("nether_brick_fence", "Nether Brick Fence", NETHER_BRICKS.color)
+
+# Fence Gates
+OAK_FENCE_GATE = _reg("oak_fence_gate", "Oak Fence Gate", OAK_PLANKS.color)
+SPRUCE_FENCE_GATE = _reg("spruce_fence_gate", "Spruce Fence Gate", SPRUCE_PLANKS.color)
+# ... add more if needed, can be created dynamically
+
+# Stairs (Base)
+OAK_STAIRS = _reg("oak_stairs", "Oak Stairs", OAK_PLANKS.color)
+COBBLESTONE_STAIRS = _reg("cobblestone_stairs", "Cobblestone Stairs", COBBLESTONE.color)
+STONE_BRICK_STAIRS = _reg("stone_brick_stairs", "Stone Brick Stairs", STONE_BRICKS.color)
+SANDSTONE_STAIRS = _reg("sandstone_stairs", "Sandstone Stairs", SANDSTONE.color)
+NETHER_BRICK_STAIRS = _reg("nether_brick_stairs", "Nether Brick Stairs", NETHER_BRICKS.color)
+QUARTZ_STAIRS = _reg("quartz_stairs", "Quartz Stairs", QUARTZ_BLOCK.color)
+PURPUR_STAIRS = _reg("purpur_stairs", "Purpur Stairs", PURPUR_BLOCK.color)
+PRISMARINE_STAIRS = _reg("prismarine_stairs", "Prismarine Stairs", PRISMARINE.color)
+
+# Slabs
+OAK_SLAB = _reg("oak_slab", "Oak Slab", OAK_PLANKS.color)
+COBBLESTONE_SLAB = _reg("cobblestone_slab", "Cobblestone Slab", COBBLESTONE.color)
+STONE_BRICK_SLAB = _reg("stone_brick_slab", "Stone Brick Slab", STONE_BRICKS.color)
+SANDSTONE_SLAB = _reg("sandstone_slab", "Sandstone Slab", SANDSTONE.color)
+QUARTZ_SLAB = _reg("quartz_slab", "Quartz Slab", QUARTZ_BLOCK.color)
+NETHER_BRICK_SLAB = _reg("nether_brick_slab", "Nether Brick Slab", NETHER_BRICKS.color)
+
+# Walls
+COBBLESTONE_WALL = _reg("cobblestone_wall", "Cobblestone Wall", COBBLESTONE.color)
+MOSSY_COBBLESTONE_WALL = _reg("mossy_cobblestone_wall", "Mossy Cobblestone Wall", MOSSY_COBBLESTONE.color)
+STONE_BRICK_WALL = _reg("stone_brick_wall", "Stone Brick Wall", STONE_BRICKS.color)
+MUD_BRICK_WALL = _reg("mud_brick_wall", "Mud Brick Wall", MUD_BRICKS.color)
+
+# Decorations
+LANTERN = _reg("lantern", "Lantern", (255, 200, 100))
+SOUL_LANTERN = _reg("soul_lantern", "Soul Lantern", (100, 200, 255))
+CHAIN = _reg("chain", "Chain", (50, 50, 50))
+IRON_BARS = _reg("iron_bars", "Iron Bars", (150, 150, 150))
+LADDER = _reg("ladder", "Ladder", (139, 69, 19))
+SCAFFOLDING = _reg("scaffolding", "Scaffolding", (200, 180, 120))
+VINE = _reg("vine", "Vine", (30, 150, 30))
+GLOW_LICHEN = _reg("glow_lichen", "Glow Lichen", (100, 150, 150))
+LILY_PAD = _reg("lily_pad", "Lily Pad", (30, 150, 30))
+CACTUS = _reg("cactus", "Cactus", (30, 150, 30))
+SUGAR_CANE = _reg("sugar_cane", "Sugar Cane", (100, 200, 100))
+BOOKSHELF = _reg("bookshelf", "Bookshelf", (139, 69, 19))
+CHISELED_BOOKSHELF = _reg("chiseled_bookshelf", "Chiseled Bookshelf", (139, 69, 19))
+DECORATED_POT = _reg("decorated_pot", "Decorated Pot", (150, 100, 50))
+TORCH = _reg("torch", "Torch", (255, 200, 100))
+SOUL_TORCH = _reg("soul_torch", "Soul Torch", (100, 200, 255))
+END_ROD = _reg("end_rod", "End Rod", (200, 200, 200))
+CHEST = _reg("chest", "Chest", (139, 69, 19))
+ENDER_CHEST = _reg("ender_chest", "Ender Chest", (30, 30, 50))
+BARREL = _reg("barrel", "Barrel", (139, 100, 50))
+SHULKER_BOX = _reg("shulker_box", "Shulker Box", (150, 100, 150))
+
+# Beds
+WHITE_BED = _reg("white_bed", "White Bed", WOOL_WHITE.color)
+RED_BED = _reg("red_bed", "Red Bed", WOOL_RED.color)
