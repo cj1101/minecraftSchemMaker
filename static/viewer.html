@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Schematic Builder</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>⛏️ Minecraft Schematic Builder</h1>
+            <p>Create schematics with code, preview in 3D, export to .schem</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Code Editor -->
+            <div class="panel editor-panel">
+                <div class="panel-header">
+                    <h2>Python Code</h2>
+                    <div class="button-group">
+                        <button id="loadExample" class="btn btn-secondary">Load Example</button>
+                        <button id="runCode" class="btn btn-primary">▶ Run</button>
+                    </div>
+                </div>
+                <textarea id="codeEditor" spellcheck="false" placeholder="from schematic_api import Schematic
+from blocks import STONE, GLASS
+
+s = Schematic(10, 10, 10)
+s.fill(0, 0, 0, 9, 0, 9, STONE)
+s.hollow_box(2, 1, 2, 7, 5, 7, GLASS)"></textarea>
+
+                <div class="panel-footer">
+                    <div id="statusMessage" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: 3D Viewer -->
+            <div class="panel viewer-panel">
+                <div class="panel-header">
+                    <h2>3D Preview</h2>
+                    <div class="button-group">
+                        <button id="clearView" class="btn btn-secondary">Clear</button>
+                        <button id="exportSchem" class="btn btn-success">💾 Export .schem</button>
+                    </div>
+                </div>
+                <div id="viewer3d"></div>
+
+                <div class="panel-footer">
+                    <div id="schematicInfo" class="schematic-info">
+                        <span>Dimensions: <strong id="dimensions">-</strong></span>
+                        <span>Blocks: <strong id="blockCount">0</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Examples Modal -->
+        <div id="examplesModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Example Scripts</h2>
+                    <button id="closeModal" class="btn-close">&times;</button>
+                </div>
+                <div id="examplesList" class="examples-list"></div>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div id="errorModal" class="modal">
+            <div class="modal-content error-content">
+                <div class="modal-header error-header">
+                    <h2>❌ Execution Error</h2>
+                    <button id="closeErrorModal" class="btn-close">&times;</button>
+                </div>
+                <div class="error-body">
+                    <p>An error occurred while running your code. You can copy the detailed error below to help fix it.
+                    </p>
+                    <div class="error-container">
+                        <pre id="errorText"></pre>
+                        <button id="copyErrorBtn" class="btn btn-secondary">📋 Copy Full Error for LLM</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filename Modal -->
+        <div id="filenameModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>💾 Export Schematic</h2>
+                    <button id="closeFilenameModal" class="btn-close">&times;</button>
+                </div>
+                <div class="error-body">
+                    <p>Enter a filename for your schematic (without .schem extension):</p>
+                    <input type="text" id="filenameInput" class="filename-input" value="my_structure"
+                        placeholder="my_structure">
+                    <div style="margin-top: 15px; text-align: right;">
+                        <button id="cancelExport" class="btn btn-secondary">Cancel</button>
+                        <button id="confirmExport" class="btn btn-success">Export</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/static/viewer.js"></script>
+</body>
+
+</html>
